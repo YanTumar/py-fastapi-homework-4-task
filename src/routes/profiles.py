@@ -11,6 +11,7 @@ from config.dependencies import get_jwt_auth_manager, get_s3_storage_client, get
 from security.interfaces import JWTAuthManagerInterface
 from storages.interfaces import S3StorageInterface
 from validation.profile import validate_name, validate_gender, validate_birth_date, validate_image
+from exceptions.security import TokenExpiredError
 
 router = APIRouter()
 
@@ -31,15 +32,24 @@ async def create_profile(
         storage_client: S3StorageInterface = Depends(get_s3_storage_client),
         settings=Depends(get_settings)
 ):
+    if not info or not info.strip():
+        raise HTTPException(status_code=422, detail="Info field cannot be empty or contain only spaces.")
+
     f_name = validate_name(first_name)
     l_name = validate_name(last_name)
     valid_gender = validate_gender(gender)
     valid_dob = validate_birth_date(date_of_birth)
     image_content = await validate_image(avatar)
-    payload = jwt_manager.decode_access_token(token)
-    current_user_id = payload.get("user_id")
-    current_user = await db.get(UserModel, current_user_id)
 
+    try:
+        payload = jwt_manager.decode_access_token(token)
+        current_user_id = payload.get("user_id")
+    except TokenExpiredError:
+        raise HTTPException(status_code=401, detail="Token has expired.")
+    except Exception:
+        raise HTTPException(status_code=401, detail="Invalid token.")
+
+    current_user = await db.get(UserModel, current_user_id)
     if not current_user or not current_user.is_active:
         raise HTTPException(status_code=401, detail="User not found or not active.")
 
@@ -48,14 +58,27 @@ async def create_profile(
         raise HTTPException(status_code=404, detail="Target user not found or not active.")
 
     if current_user_id != user_id and current_user.group_id != 3:
-        raise HTTPException(status_code=403, detail="You don't have permission.")
+        raise HTTPException(
+            status_code=403,
+            detail="You don't have permission to edit this profile."
+        )
 
     existing = await db.execute(select(UserProfileModel).filter_by(user_id=user_id))
     if existing.scalar_one_or_none():
         raise HTTPException(status_code=400, detail="User already has a profile.")
 
     avatar_key = f"avatars/{user_id}_avatar.jpg"
-    await storage_client.upload_file(avatar_key, image_content)
+
+    from exceptions.storage import S3FileUploadError
+
+    try:
+        await storage_client.upload_file(avatar_key, image_content)
+    except S3FileUploadError:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload avatar. Please try again later."
+        )
+
     new_profile = UserProfileModel(
         first_name=f_name, last_name=l_name, gender=valid_gender,
         date_of_birth=valid_dob, info=info, avatar=avatar_key, user_id=user_id
@@ -63,7 +86,7 @@ async def create_profile(
     db.add(new_profile)
     await db.commit()
     await db.refresh(new_profile)
-    full_avatar_url = f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET_NAME}/{avatar_key}"
-    new_profile.avatar = full_avatar_url
+
+    new_profile.avatar = f"{settings.S3_ENDPOINT_URL}/{settings.S3_BUCKET_NAME}/{avatar_key}"
 
     return new_profile

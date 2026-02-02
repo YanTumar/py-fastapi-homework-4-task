@@ -32,8 +32,12 @@ class BaseAppSettings(BaseSettings):
     S3_BUCKET_NAME: str = os.getenv("MINIO_STORAGE", "theater-storage")
 
     @property
-    def S3_STORAGE_ENDPOINT(self) -> str:
+    def S3_ENDPOINT_URL(self) -> str:
         return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
+
+    @property
+    def S3_STORAGE_ENDPOINT(self) -> str:
+        return self.S3_ENDPOINT_URL
 
 
 class Settings(BaseAppSettings):
@@ -52,6 +56,8 @@ class TestingSettings(BaseAppSettings):
     SECRET_KEY_ACCESS: str = "SECRET_KEY_ACCESS"
     SECRET_KEY_REFRESH: str = "SECRET_KEY_REFRESH"
     JWT_SIGNING_ALGORITHM: str = "HS256"
+
+    S3_STORAGE_HOST: str = "minio-theater-test"
 
     def model_post_init(self, __context: dict[str, Any] | None = None) -> None:
         object.__setattr__(self, 'PATH_TO_DB', ":memory:")

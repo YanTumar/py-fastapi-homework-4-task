@@ -1,13 +1,16 @@
+from pydantic import BaseModel, ConfigDict
 from datetime import date
+from typing import Optional
 
-from fastapi import UploadFile, Form, File, HTTPException
-from pydantic import BaseModel, field_validator, HttpUrl
 
-from validation import (
-    validate_name,
-    validate_image,
-    validate_gender,
-    validate_birth_date
-)
+class UserProfileResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
 
-# Write your code here
+    id: int
+    user_id: int
+    first_name: str
+    last_name: str
+    avatar: Optional[str]
+    gender: str
+    date_of_birth: date
+    info: Optional[str]

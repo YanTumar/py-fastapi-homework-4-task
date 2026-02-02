@@ -25,10 +25,8 @@ services:
         condition: service_started
       minio:
         condition: service_healthy
-    volumes:
-      - ./src:/usr/src/fastapi
-    networks:
-      - theater_network_test
+      minio_mc:
+        condition: service_completed_successfully
 
   mailhog:
     image: mailhog/mailhog

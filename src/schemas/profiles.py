@@ -1,6 +1,14 @@
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from datetime import date
 from typing import Optional
+
+
+class UserProfileCreateSchema(BaseModel):
+    first_name: str
+    last_name: str
+    gender: str
+    date_of_birth: date
+    info: Optional[str] = None
 
 
 class UserProfileResponseSchema(BaseModel):

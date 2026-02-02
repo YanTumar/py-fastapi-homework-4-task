@@ -34,7 +34,6 @@ from schemas import (
 from security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter()
-
 BASE_URL = "http://127.0.0.1:8000"
 LOGIN_URL = f"{BASE_URL}/accounts/login/"
 
@@ -154,8 +153,8 @@ async def request_password_reset_token(
     reset_token = PasswordResetTokenModel(user_id=cast(int, user.id))
     db.add(reset_token)
     await db.commit()
+    reset_link = f"{BASE_URL}/accounts/reset-password/complete/?email={user.email}&token={reset_token.token}"
 
-    reset_link = f"{BASE_URL}/accounts/password-reset/complete/?email={user.email}&token={reset_token.token}"
     background_tasks.add_task(
         email_sender.send_password_reset_email,
         str(user.email),

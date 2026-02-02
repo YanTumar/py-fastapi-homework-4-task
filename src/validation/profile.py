@@ -27,7 +27,11 @@ def validate_birth_date(birth_date: date):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Invalid birth date - year must be greater than 1900."
         )
-    age = (date.today() - birth_date).days // 365
+
+    # Точний розрахунок віку
+    today = date.today()
+    age = today.year - birth_date.year - ((today.month, today.day) < (birth_date.month, birth_date.day))
+
     if age < 18:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
